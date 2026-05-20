@@ -407,6 +407,12 @@ footer{
   .proj-c, .exp-c, .cert-c { cursor:auto; }
   #mobile-fallback{display:block !important}
 }
+
+/* Ensure the entire 3D scroll container is hidden on small screens so only the static fallback shows */
+@media (max-width:900px){
+  #scroll-container { display: none !important; }
+  .hud, .hud-left, .hud-right, .hud-center { position: static !important; }
+}
 /* Hide heavy WebGL canvas on small screens (also controlled by JS) */
 @media (max-width: 900px) {
   #webgl { display: none !important; visibility: hidden; height: 0 !important; }
