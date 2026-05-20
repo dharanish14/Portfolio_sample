@@ -1509,6 +1509,11 @@ function updateRenderEnabled(){
     const cur = document.getElementById('cur'); const curR = document.getElementById('cur-r');
     if(cur) cur.style.display = renderEnabled ? '' : 'none';
     if(curR) curR.style.display = renderEnabled ? '' : 'none';
+    // Also hide the main overlay and scroll container on mobile static
+    const overlay = document.getElementById('overlay');
+    const sc = document.getElementById('scroll-container');
+    if(overlay) overlay.style.display = renderEnabled ? '' : 'none';
+    if(sc) sc.style.display = renderEnabled ? '' : 'none';
   }catch(e){}
   try{
     if(!renderEnabled && audioCtx) audioCtx.suspend();
