@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THIRUSELVAN L — 3D Gallery Portfolio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Space+Mono:ital,wght@0,400;0,700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --forge:#FF5500;--molten:#FF9A3C;--cold:#00CFFF;--plasma:#7B61FF;
+  --emerald:#00FF88;--crimson:#FF2255;
+  --steel:#B0C8E8;--dark:#020408;--text:#EEF4FF;--muted:#4A6A8A;
+}
+html{scroll-behavior:auto;}
+body{width:100%;height:100%;overflow-x:hidden;background:var(--dark);cursor:auto;font-family:'Rajdhani',sans-serif;}
+
+/* ── CANVAS ── */
+#webgl{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+
+/* ── CURSOR ── */
+#cur{position:fixed;width:10px;height:10px;border-radius:50%;background:var(--forge);
+  pointer-events:none;z-index:9999;transform:translate(-50%,-50%);
+  box-shadow:0 0 20px var(--forge),0 0 40px var(--forge);transition:transform .1s,background .2s;}
+#cur-r{position:fixed;width:36px;height:36px;border-radius:50%;border:1px solid var(--cold);
+  pointer-events:none;z-index:9998;transform:translate(-50%,-50%);
+  transition:left .12s ease-out,top .12s ease-out,width .2s,height .2s;}
+
+#cur,#cur-r{display:none;}
+
+/* ── OVERLAY ── */
+#overlay{position:relative;z-index:10;}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.4rem 4rem;
+  border-bottom:1px solid rgba(0,207,255,0.06);
+  background:linear-gradient(180deg,rgba(2,4,10,0.95) 0%,transparent 100%);
+  backdrop-filter:blur(12px);
+}
+.logo{font-family:'Orbitron',monospace;font-size:.95rem;font-weight:900;
+  letter-spacing:.4em;color:var(--forge);text-shadow:0 0 30px var(--forge);}
+.nav-ul{display:flex;gap:2.5rem;list-style:none;}
+.nav-ul a{font-family:'Space Mono',monospace;font-size:.68rem;font-weight:400;
+  letter-spacing:.25em;text-transform:uppercase;color:var(--muted);
+  text-decoration:none;transition:color .3s;}
+.nav-ul a:hover{color:var(--cold);}
+
+/* ── ROOM INDICATOR ── */
+#room-indicator{
+  position:fixed;right:3rem;top:50%;transform:translateY(-50%);
+  z-index:200;display:flex;flex-direction:column;gap:.8rem;
+}
+.room-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(176,200,232,0.2);border:1px solid rgba(176,200,232,0.3);
+  transition:all .4s;cursor:none;
+}
+.room-dot.active{background:var(--forge);border-color:var(--forge);
+  box-shadow:0 0 12px var(--forge);transform:scale(1.5);}
+.room-dot-label{
+  position:absolute;right:1.5rem;top:50%;transform:translateY(-50%);
+  font-family:'Space Mono',monospace;font-size:.55rem;letter-spacing:.2em;
+  color:var(--muted);white-space:nowrap;opacity:0;transition:opacity .3s;
+}
+.room-dot:hover .room-dot-label{opacity:1;}
+
+/* ── SCROLL CONTAINER ── */
+#scroll-container{position:relative;z-index:10;padding-bottom:14rem;}
+
+/* ── ROOM PANELS ── each 100vh tall to drive the camera ── */
+.room-panel{
+  height:100vh;position:relative;display:flex;align-items:center;
+  pointer-events:none;
+}
+.room-panel:first-child{pointer-events:all;}
+
+/* ── HUD PANELS (content overlaid on 3D) ── */
+.hud{
+  position:absolute;pointer-events:all;
+}
+.hud-left{left:8%;max-width:500px;}
+.hud-right{right:8%;max-width:500px;text-align:right;}
+.hud-center{left:50%;transform:translateX(-50%);text-align:center;width:600px;}
+
+/* ── ROOM HUD COMMON ── */
+.room-tag{
+  font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.45em;
+  text-transform:uppercase;margin-bottom:.7rem;opacity:0;
+  transition:opacity .8s;
+}
+.room-title{
+  font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(2.4rem,4.5vw,4.2rem);line-height:.92;
+  color:var(--text);margin-bottom:1.2rem;opacity:0;
+  transform:translateY(30px);transition:opacity .8s .1s,transform .8s .1s;
+}
+.room-body{
+  font-family:'Rajdhani',sans-serif;font-weight:300;
+  font-size:1.05rem;line-height:1.85;color:var(--steel);
+  max-width:480px;opacity:0;
+  transform:translateY(20px);transition:opacity .8s .25s,transform .8s .25s;
+}
+.room-accent{
+  display:inline-block;margin-top:1.5rem;
+  font-family:'Space Mono',monospace;font-size:.65rem;letter-spacing:.2em;
+  padding:.6rem 1.4rem;border:1px solid;
+  opacity:0;transform:translateY(15px);
+  transition:opacity .8s .4s,transform .8s .4s;
+}
+.room-panel.visible .room-tag,
+.room-panel.visible .room-title,
+.room-panel.visible .room-body,
+.room-panel.visible .room-accent{
+  opacity:1;transform:translateY(0);
+}
+
+/* ── STAT CHIPS ── */
+.stat-chips{display:flex;flex-wrap:wrap;gap:.8rem;margin-top:1.5rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .stat-chips{opacity:1;}
+.sc{
+  font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.12em;
+  padding:.5rem 1rem;border:1px solid rgba(255,255,255,.1);
+  color:var(--text);background:rgba(255,255,255,.04);
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+}
+
+/* ── HERO (Room 0) ── */
+#room-hero .room-title{font-size:clamp(4.5rem,9vw,8rem);line-height:.88;}
+#room-hero .hero-name{display:inline-flex;align-items:baseline;gap:.75rem;white-space:nowrap;flex-wrap:nowrap;font-size:clamp(3rem,6vw,5.8rem);}
+#room-hero .hero-name strong,
+#room-hero .hero-name .hero-last{display:inline;font-style:normal;
+  -webkit-text-stroke:1.5px rgba(255,85,0,.7);color:transparent;
+  text-shadow:0 0 100px rgba(255,85,0,.25);}
+.hero-portrait{
+  position:absolute;right:8%;top:50%;transform:translateY(-50%);
+  width:min(220px,20vw);pointer-events:none;
+  opacity:0;animation:fadeUp .9s .4s forwards;
+}
+.hero-frame{
+  position:relative;padding:1rem;border:1px solid rgba(0,207,255,.18);
+  background:linear-gradient(180deg,rgba(2,4,10,.76),rgba(2,4,10,.28));
+  clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));
+  box-shadow:0 0 50px rgba(0,207,255,.08), inset 0 0 30px rgba(255,85,0,.08);
+}
+.hero-frame::before{
+  content:'';position:absolute;inset:-1px;background:linear-gradient(135deg,rgba(255,85,0,.55),rgba(0,207,255,.22),transparent 70%);
+  opacity:.2;pointer-events:none;
+}
+.hero-photo{
+  width:100%;display:block;aspect-ratio:3/4;object-fit:cover;
+  filter:saturate(1.05) contrast(1.04);
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+.hero-caption{
+  margin-top:.9rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  font-family:'Space Mono',monospace;font-size:.56rem;letter-spacing:.22em;color:var(--steel);text-transform:uppercase;
+}
+.hero-chip{color:var(--forge);}
+.hero-sub{
+  font-family:'Rajdhani',monospace;font-size:clamp(.9rem,1.8vw,1.2rem);
+  letter-spacing:.5em;text-transform:uppercase;color:var(--steel);
+  margin:1rem 0 2.5rem;opacity:0;transition:opacity .8s .4s;
+}
+.room-panel.visible .hero-sub{opacity:1;}
+.hero-btns{display:flex;gap:1.5rem;opacity:0;transition:opacity .8s .6s;}
+.room-panel.visible .hero-btns{opacity:1;}
+.btn{display:inline-flex;align-items:center;gap:.6rem;
+  padding:.8rem 2rem;text-decoration:none;cursor:none;
+  font-family:'Orbitron',monospace;font-size:.6rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;
+  transition:all .35s;position:relative;overflow:hidden;}
+.btn-primary{background:var(--forge);color:#020408;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));}
+.btn-primary:hover{box-shadow:0 0 40px var(--forge),0 0 80px rgba(255,85,0,.4);transform:translateY(-3px);}
+.btn-ghost{background:transparent;color:var(--cold);border:1px solid rgba(0,207,255,.4);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));}
+.btn-ghost:hover{background:rgba(0,207,255,.08);box-shadow:0 0 30px rgba(0,207,255,.3);transform:translateY(-3px);}
+
+/* scroll hint */
+.scroll-hint{
+  position:absolute;bottom:2.5rem;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:.5rem;
+  font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.3em;color:var(--muted);
+  opacity:0;transition:opacity 1s 1.5s;
+}
+.room-panel.visible .scroll-hint{opacity:1;}
+.scroll-line{width:1px;height:50px;background:linear-gradient(to bottom,var(--forge),transparent);
+  animation:scrollBeat 2s infinite;}
+
+/* ── ABOUT ROOM ── */
+#room-about .room-tag{color:var(--cold);}
+#room-about .room-accent{color:var(--cold);border-color:rgba(0,207,255,.4);}
+.bp-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;
+}
+.room-panel.visible .bp-grid{opacity:1;}
+.bp-stat{border-left:2px solid var(--cold);padding-left:1rem;}
+.bp-n{font-family:'Orbitron',monospace;font-weight:900;font-size:2.2rem;color:var(--cold);}
+.bp-l{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);}
+
+/* ── EXPERIENCE ROOM ── */
+#room-exp .room-tag{color:var(--forge);}
+.exp-cards{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .exp-cards{opacity:1;}
+.exp-c{
+  background:rgba(2,4,10,.75);border:1px solid rgba(255,85,0,.12);
+  padding:1.6rem 2rem;position:relative;
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);
+}
+.exp-c::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:linear-gradient(to bottom,var(--forge),transparent);}
+.exp-period{font-family:'Space Mono',monospace;font-size:.55rem;letter-spacing:.2em;color:var(--forge);}
+.exp-co{font-family:'Orbitron',monospace;font-weight:700;font-size:.88rem;margin:.3rem 0;}
+.exp-role{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cold);}
+
+/* ── PROJECTS ROOM ── */
+#room-proj .room-tag{color:var(--plasma);}
+.proj-cards{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .proj-cards{opacity:1;}
+.proj-c{
+  background:rgba(2,4,10,.75);border:1px solid rgba(123,97,255,.12);
+  padding:1.6rem;position:relative;overflow:hidden;cursor:none;transition:all .35s;
+}
+.proj-c::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(to right,var(--forge),var(--cold));
+  transform:scaleX(0);transform-origin:left;transition:transform .4s;}
+.proj-c:hover::after{transform:scaleX(1);}
+.proj-c:hover{border-color:rgba(123,97,255,.35);transform:translateY(-4px);}
+.proj-n{font-family:'Orbitron',monospace;font-weight:900;font-size:3rem;
+  color:rgba(255,85,0,.07);position:absolute;top:.3rem;right:.8rem;line-height:1;}
+.proj-title-c{font-family:'Orbitron',monospace;font-size:.78rem;font-weight:700;
+  margin-bottom:.6rem;line-height:1.35;}
+.proj-desc-c{color:var(--muted);font-size:.82rem;line-height:1.7;}
+.proj-achieve-c{margin-top:.8rem;padding:.6rem 1rem;
+  background:rgba(255,85,0,.05);border-left:2px solid var(--forge);
+  font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.06em;color:var(--molten);}
+
+/* ── SKILLS ROOM ── */
+#room-skills .room-tag{color:var(--emerald);}
+.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .sk-grid{opacity:1;}
+.sk-cat{
+  background:rgba(0,207,255,.02);border:1px solid rgba(0,207,255,.09);
+  padding:1.8rem 1.4rem;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+}
+.sk-cat-title{font-family:'Orbitron',monospace;font-size:.62rem;font-weight:700;
+  letter-spacing:.25em;color:var(--forge);margin-bottom:1.4rem;
+  padding-bottom:.6rem;border-bottom:1px solid rgba(255,85,0,.12);}
+.sk-bar{margin-bottom:1rem;}
+.sk-label{display:flex;justify-content:space-between;
+  font-size:.8rem;color:var(--text);font-weight:600;margin-bottom:.35rem;}
+.sk-pct{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);}
+.sk-track{height:2px;background:rgba(255,255,255,.04);}
+.sk-fill{height:100%;background:linear-gradient(to right,var(--forge),var(--molten));
+  width:0;transition:width 1.5s cubic-bezier(.4,0,.2,1);}
+
+/* ── CERTS ROOM ── */
+#room-certs .room-tag{color:var(--molten);}
+.cert-row-c{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .cert-row-c{opacity:1;}
+.cert-c{
+  background:rgba(2,4,10,.8);border:1px solid rgba(0,207,255,.08);
+  padding:1.4rem 1.2rem;text-align:center;flex:1;min-width:140px;
+  transition:all .3s;cursor:none;position:relative;overflow:hidden;
+}
+.cert-c:hover{transform:translateY(-6px);border-color:rgba(255,85,0,.3);}
+.cert-ring-c{width:40px;height:40px;border:1px solid rgba(255,85,0,.35);
+  border-radius:50%;margin:0 auto .7rem;display:flex;align-items:center;justify-content:center;
+  color:var(--forge);}
+.cert-name-c{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.08em;}
+.cert-by-c{font-family:'Space Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.2rem;}
+
+/* ── CONTACT ROOM ── */
+#room-contact .room-tag{color:var(--forge);}
+#room-contact .room-accent{color:var(--forge);border-color:rgba(255,85,0,.4);}
+.c-links-c{display:flex;flex-direction:column;gap:.8rem;margin-top:1.8rem;
+  opacity:0;transition:opacity .9s .5s;}
+.room-panel.visible .c-links-c{opacity:1;}
+.c-link-c{display:flex;align-items:center;gap:1rem;
+  padding:.8rem 1.2rem;border:1px solid rgba(0,207,255,.08);
+  font-family:'Space Mono',monospace;font-size:.68rem;letter-spacing:.1em;
+  color:var(--steel);text-decoration:none;cursor:none;transition:all .3s;}
+.c-link-c:hover{border-color:rgba(255,85,0,.35);color:var(--forge);background:rgba(255,85,0,.04);}
+.c-ico-c{color:var(--forge);flex-shrink:0;}
+.contact-form{
+  margin-top:1.25rem;display:grid;gap:.8rem;opacity:0;transition:opacity .9s .5s;
+  margin-bottom:3.5rem;
+}
+.room-panel.visible .contact-form{opacity:1;}
+.contact-input,.contact-textarea{
+  width:100%;background:rgba(2,4,10,.7);border:1px solid rgba(0,207,255,.1);
+  color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;padding:.9rem 1rem;
+  outline:none;transition:border-color .25s,box-shadow .25s;
+}
+.contact-input:focus,.contact-textarea:focus{
+  border-color:rgba(0,207,255,.35);box-shadow:0 0 0 3px rgba(0,207,255,.08);
+}
+.contact-textarea{min-height:130px;resize:vertical;}
+.contact-actions{display:flex;flex-direction:column;align-items:flex-start;gap:.8rem;flex-wrap:wrap;}
+.contact-note{font-family:'Space Mono',monospace;font-size:.56rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+.contact-status{font-family:'Space Mono',monospace;font-size:.56rem;letter-spacing:.12em;color:var(--emerald);}
+
+/* ── FOOTER ── */
+footer{
+  position:relative;z-index:10;text-align:center;padding:3rem;
+  border-top:1px solid rgba(0,207,255,.06);
+  font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.25em;color:var(--muted);
+}
+
+/* ── SOUND TOGGLE ── */
+#sound-btn{
+  position:fixed;bottom:2.5rem;right:3rem;z-index:200;
+  width:44px;height:44px;border-radius:50%;
+  background:rgba(2,4,10,.8);border:1px solid rgba(0,207,255,.2);
+  display:flex;align-items:center;justify-content:center;
+  cursor:none;transition:all .3s;
+  backdrop-filter:blur(8px);
+}
+#sound-btn:hover{border-color:var(--cold);box-shadow:0 0 20px rgba(0,207,255,.2);}
+#sound-btn svg{transition:opacity .3s;}
+
+/* ── LOADING SCREEN ── */
+#loading{
+  position:fixed;inset:0;z-index:9000;
+  background:var(--dark);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .8s;
+}
+#loading.gone{opacity:0;pointer-events:none;}
+.loading-logo{font-family:'Orbitron',monospace;font-weight:900;font-size:2rem;
+  letter-spacing:.4em;color:var(--forge);text-shadow:0 0 30px var(--forge);margin-bottom:2rem;}
+.loading-bar-wrap{width:300px;height:2px;background:rgba(255,255,255,.05);}
+.loading-bar{height:100%;background:linear-gradient(to right,var(--forge),var(--cold));
+  width:0%;transition:width .05s linear;}
+.loading-label{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.3em;
+  color:var(--muted);margin-top:1.2rem;}
+
+/* ── ANIMATIONS ── */
+@keyframes scrollBeat{
+  0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}
+  51%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  nav{padding:1rem 1.5rem;}
+  .nav-ul{display:none;}
+  .hud-left,.hud-right,.hud-center{left:5%;right:5%;max-width:100%;transform:none;text-align:left;width:auto;}
+  .proj-cards,.sk-grid{grid-template-columns:1fr;}
+  .bp-grid{grid-template-columns:1fr 1fr;}
+  #room-indicator{display:none;}
+  .hero-portrait{position:relative;right:auto;top:auto;transform:none;width:min(320px,78vw);margin:1.5rem 0 0 auto;}
+  .hero-name{font-size:clamp(2.8rem,11vw,5.2rem);}
+  .contact-form{margin-bottom:5rem;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">TL // MECH</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="lbar"></div></div>
+  <div class="loading-label" id="llabel">INITIALISING 3D GALLERY</div>
+</div>
+
+<div id="cur"></div>
+<div id="cur-r"></div>
+
+<canvas id="webgl"></canvas>
+
+<div id="overlay">
+
+<!-- NAV -->
+<nav>
+  <div class="logo">TL // MECH</div>
+  <ul class="nav-ul">
+    <li><a href="#" onclick="scrollToRoom(0);return false;">Entrance</a></li>
+    <li><a href="#" onclick="scrollToRoom(1);return false;">About</a></li>
+    <li><a href="#" onclick="scrollToRoom(2);return false;">Experience</a></li>
+    <li><a href="#" onclick="scrollToRoom(3);return false;">Projects</a></li>
+    <li><a href="#" onclick="scrollToRoom(4);return false;">Skills</a></li>
+    <li><a href="#" onclick="scrollToRoom(5);return false;">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- ROOM DOTS -->
+<div id="room-indicator">
+  <div class="room-dot active" onclick="scrollToRoom(0)"></div>
+  <div class="room-dot" onclick="scrollToRoom(1)"></div>
+  <div class="room-dot" onclick="scrollToRoom(2)"></div>
+  <div class="room-dot" onclick="scrollToRoom(3)"></div>
+  <div class="room-dot" onclick="scrollToRoom(4)"></div>
+  <div class="room-dot" onclick="scrollToRoom(5)"></div>
+</div>
+
+<!-- SOUND TOGGLE -->
+<button id="sound-btn" onclick="toggleSound()">
+  <svg id="sound-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+  </svg>
+  <svg id="sound-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A6A8A" stroke-width="1.5" style="display:none">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+  </svg>
+</button>
+
+<!-- SCROLL CONTAINER -->
+<div id="scroll-container">
+
+  <!-- ROOM 0: HERO / ENTRANCE -->
+  <div class="room-panel visible" id="room-hero" data-room="0">
+    <div class="hud hud-left" style="top:50%;transform:translateY(-50%);">
+      <div class="room-tag" style="color:var(--cold);">◈ MECHANICAL ENGINEER · VELAMMAL · 2022–2026</div>
+      <h1 class="room-title hero-name">
+        <strong>THIRUSELVAN</strong>
+        <span class="hero-last">L</span>
+      </h1>
+      <p class="hero-sub">Design &nbsp;·&nbsp; Manufacturing &nbsp;·&nbsp; Automation</p>
+      <div class="hero-btns">
+        <a href="#" onclick="scrollToRoom(3);return false;" class="btn btn-primary">Explore Work ▸</a>
+        <a href="#" onclick="scrollToRoom(5);return false;" class="btn btn-ghost">Contact</a>
+      </div>
+    </div>
+    <div class="hero-portrait" aria-label="Portrait of THIRUSELVAN L">
+      <div class="hero-frame">
+        <img class="hero-photo" src="WhatsApp%20Image%202026-05-20%20at%202.30.42%20PM.jpeg" alt="THIRUSELVAN L portrait">
+        <div class="hero-caption">
+          <span>PROFILE</span>
+          <span class="hero-chip">THIRUSELVAN L</span>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-hint">
+      <span>SCROLL TO ENTER</span>
+      <div class="scroll-line"></div>
+    </div>
+  </div>
+
+  <!-- ROOM 1: ABOUT -->
+  <div class="room-panel" id="room-about" data-room="1">
+    <div class="hud hud-right" style="top:50%;transform:translateY(-50%);">
+      <div class="room-tag">◈ 001 · ABOUT</div>
+      <h2 class="room-title">Built to Build.<br>Driven to<br><span style="color:var(--cold)">Design.</span></h2>
+      <p class="room-body">A highly motivated mechanical engineering undergraduate forged through two industry internships — from automotive injection moulding lines to software-integrated mechanical prototyping. I bridge traditional engineering with the intelligence of modern data systems. My minor in Data Science positions me at the frontier of smart manufacturing.</p>
+      <div class="bp-grid">
+        <div class="bp-stat"><div class="bp-n">2</div><div class="bp-l">Internships</div></div>
+        <div class="bp-stat"><div class="bp-n">2</div><div class="bp-l">Core Projects</div></div>
+        <div class="bp-stat"><div class="bp-n">5</div><div class="bp-l">Certifications</div></div>
+        <div class="bp-stat"><div class="bp-n">4+</div><div class="bp-l">CAD Tools</div></div>
+      </div>
+      <div class="room-accent" style="color:var(--cold);border-color:rgba(0,207,255,.3)">CGPA: 7.73 // B.E. MECHANICAL (MINOR: DS)</div>
+    </div>
+  </div>
+
+  <!-- ROOM 2: EXPERIENCE -->
+  <div class="room-panel" id="room-exp" data-room="2">
+    <div class="hud hud-left" style="top:50%;transform:translateY(-50%);">
+      <div class="room-tag">◈ 002 · INDUSTRY EXPERIENCE</div>
+      <h2 class="room-title">Forged in<br>the <span style="color:var(--forge)">Field</span></h2>
+      <div class="exp-cards">
+        <div class="exp-c">
+          <div class="exp-period">DEC 2025 — JAN 2026</div>
+          <div class="exp-co">Motherson Automotive</div>
+          <div class="exp-role">Intern · Manufacturing & Quality · Chennai</div>
+          <div class="stat-chips" style="margin-top:.8rem">
+            <span class="sc">Injection Moulding</span><span class="sc">Robotic Paint</span><span class="sc">QC</span>
+          </div>
+        </div>
+        <div class="exp-c">
+          <div class="exp-period">NOV 2024 — DEC 2024</div>
+          <div class="exp-co">Nexspan Technologies</div>
+          <div class="exp-role">Intern · Mechanical & Software Design · Chennai</div>
+          <div class="stat-chips" style="margin-top:.8rem">
+            <span class="sc">CAD Tools</span><span class="sc">Prototyping</span><span class="sc">Automation</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM 3: PROJECTS -->
+  <div class="room-panel" id="room-proj" data-room="3">
+    <div class="hud hud-center" style="top:50%;transform:translateX(-50%) translateY(-50%);">
+      <div class="room-tag" style="text-align:center">◈ 003 · ACADEMIC PROJECTS</div>
+      <h2 class="room-title" style="text-align:center">Engineering<br>in <span style="color:var(--plasma)">Action</span></h2>
+      <div class="proj-cards">
+        <div class="proj-c">
+          <div class="proj-n">01</div>
+          <div class="proj-title-c">Biochar-Infused PCM for Solar Absorber Cooling</div>
+          <div class="proj-desc-c">Designed a biochar-infused Phase Change Material system for solar absorber thermal management — improving heat regulation through eco-friendly engineering.</div>
+          <div class="proj-achieve-c">◈ 20%+ REDUCTION IN TEMPERATURE FLUCTUATIONS</div>
+          <div class="stat-chips" style="margin-top:.6rem">
+            <span class="sc">Thermal</span><span class="sc">PCM</span><span class="sc">Sustainable</span>
+          </div>
+        </div>
+        <div class="proj-c">
+          <div class="proj-n">02</div>
+          <div class="proj-title-c">Smart Helmet — Accident Analysis & Alcohol Detection</div>
+          <div class="proj-desc-c">IoT-based Smart Helmet integrating ESP32, GPS, and MQ-3 sensors for real-time location tracking, alcohol detection, and automated accident alerts.</div>
+          <div class="proj-achieve-c">◈ REAL-TIME AUTOMATED ALERT SYSTEM DEPLOYED</div>
+          <div class="stat-chips" style="margin-top:.6rem">
+            <span class="sc">ESP32</span><span class="sc">GPS</span><span class="sc">IoT</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM 4: SKILLS + CERTS -->
+  <div class="room-panel" id="room-skills" data-room="4">
+    <div class="hud hud-left" style="top:50%;transform:translateY(-50%);max-width:700px;">
+      <div class="room-tag">◈ 004 · SKILLS & CREDENTIALS</div>
+      <h2 class="room-title">The Engineer's<br><span style="color:var(--emerald)">Arsenal</span></h2>
+      <div class="sk-grid">
+        <div class="sk-cat">
+          <div class="sk-cat-title">◈ Design & CAD</div>
+          <div class="sk-bar"><div class="sk-label"><span>SolidWorks</span><span class="sk-pct">85%</span></div><div class="sk-track"><div class="sk-fill" data-w="85"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>Creo (PTC)</span><span class="sk-pct">80%</span></div><div class="sk-track"><div class="sk-fill" data-w="80"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>GD&T</span><span class="sk-pct">75%</span></div><div class="sk-track"><div class="sk-fill" data-w="75"></div></div></div>
+        </div>
+        <div class="sk-cat">
+          <div class="sk-cat-title">◈ Manufacturing</div>
+          <div class="sk-bar"><div class="sk-label"><span>Thermodynamics</span><span class="sk-pct">80%</span></div><div class="sk-track"><div class="sk-fill" data-w="80"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>Heat Transfer</span><span class="sk-pct">78%</span></div><div class="sk-track"><div class="sk-fill" data-w="78"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>Quality Control</span><span class="sk-pct">72%</span></div><div class="sk-track"><div class="sk-fill" data-w="72"></div></div></div>
+        </div>
+        <div class="sk-cat">
+          <div class="sk-cat-title">◈ Soft Skills</div>
+          <div class="sk-bar"><div class="sk-label"><span>MS Office</span><span class="sk-pct">90%</span></div><div class="sk-track"><div class="sk-fill" data-w="90"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>Leadership</span><span class="sk-pct">85%</span></div><div class="sk-track"><div class="sk-fill" data-w="85"></div></div></div>
+          <div class="sk-bar"><div class="sk-label"><span>Analytical</span><span class="sk-pct">82%</span></div><div class="sk-track"><div class="sk-fill" data-w="82"></div></div></div>
+        </div>
+      </div>
+      <div class="cert-row-c">
+        <div class="cert-c"><div class="cert-ring-c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="cert-name-c">SolidWorks</div><div class="cert-by-c">INFOSYS</div></div>
+        <div class="cert-c"><div class="cert-ring-c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg></div><div class="cert-name-c">CADD Creo</div><div class="cert-by-c">CADD TECH</div></div>
+        <div class="cert-c"><div class="cert-ring-c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z"/><path d="M9 9h6M9 12h4"/></svg></div><div class="cert-name-c">MS Excel</div><div class="cert-by-c">COURSERA</div></div>
+        <div class="cert-c"><div class="cert-ring-c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83"/></svg></div><div class="cert-name-c">AI Fundamentals</div><div class="cert-by-c">IBM</div></div>
+        <div class="cert-c"><div class="cert-ring-c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div><div class="cert-name-c">C Programming</div><div class="cert-by-c">HCL GUVI</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM 5: CONTACT -->
+  <div class="room-panel" id="room-contact" data-room="5">
+    <div class="hud hud-right" style="top:50%;transform:translateY(-50%);">
+      <div class="room-tag">◈ 006 · CONTACT</div>
+      <h2 class="room-title">Let's Build<br>Something<br><span style="color:var(--forge)">Real.</span></h2>
+      <p class="room-body">Open to core mechanical engineering roles, design internships, and collaborative R&D in manufacturing and automation.</p>
+      <div class="c-links-c">
+        <a href="tel:+917010051020" class="c-link-c">
+          <span class="c-ico-c"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.22 19.79 19.79 0 01.13 9 2 2 0 012 7h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 14a16 16 0 006.2 6.2l.72-.72a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></span>
+          +91 70100 51020
+        </a>
+        <a href="mailto:thiruselvan2506@gmail.com" class="c-link-c">
+          <span class="c-ico-c"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+          thiruselvan2506@gmail.com
+        </a>
+        <a href="https://wa.me/917010051020?text=Hello%20THIRUSELVAN%20L%2C%20I%20visited%20your%203D%20gallery%20portfolio." class="c-link-c" target="_blank" rel="noopener noreferrer">
+          <span class="c-ico-c"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.52 3.48A11.76 11.76 0 0012.07 0C5.5 0 .16 5.34.16 11.91c0 2.09.55 4.14 1.59 5.94L0 24l6.31-1.66a11.88 11.88 0 005.72 1.46h.01c6.57 0 11.9-5.34 11.9-11.91 0-3.19-1.24-6.18-3.42-8.41zM12.04 21.48h-.01a9.7 9.7 0 01-4.95-1.35l-.35-.2-3.74.98 1-3.65-.23-.37a9.76 9.76 0 01-1.5-5.2C2.26 6.27 6.59 1.94 12.05 1.94a9.8 9.8 0 016.93 2.86 9.73 9.73 0 012.88 6.93c0 5.47-4.33 9.75-9.82 9.75zm5.68-7.75c-.31-.15-1.84-.91-2.13-1.01-.29-.1-.5-.15-.71.15-.2.31-.81 1.01-.99 1.22-.18.21-.37.24-.68.08-.31-.15-1.29-.48-2.46-1.53-.91-.81-1.53-1.81-1.71-2.12-.18-.31-.02-.48.13-.63.13-.13.31-.37.46-.56.15-.18.2-.31.31-.52.1-.21.05-.39-.02-.54-.08-.15-.71-1.71-.97-2.34-.26-.62-.52-.54-.71-.55-.18-.01-.39-.02-.6-.02-.21 0-.56.08-.85.39-.29.31-1.1 1.08-1.1 2.63s1.13 3.04 1.29 3.25c.16.21 2.22 3.39 5.38 4.75.75.32 1.34.51 1.8.65.76.24 1.45.21 2 .13.61-.09 1.84-.75 2.1-1.47.26-.71.26-1.32.18-1.46-.08-.14-.29-.23-.61-.38z"/></svg></span>
+          WhatsApp Chat
+        </a>
+        <a href="https://linkedin.com" class="c-link-c" target="_blank">
+          <span class="c-ico-c"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></span>
+          LinkedIn Profile ↗
+        </a>
+        <span class="c-link-c" style="cursor:default">
+          <span class="c-ico-c"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          Kallakurichi, Tamil Nadu, India
+        </span>
+      </div>
+      <form id="contact-form" class="contact-form">
+        <input class="contact-input" name="name" type="text" placeholder="Your name" autocomplete="name" required>
+        <input class="contact-input" name="email" type="email" placeholder="Your email" autocomplete="email" required>
+        <textarea class="contact-textarea" name="message" placeholder="Write your message" required></textarea>
+        <div class="contact-actions">
+          <button type="submit" class="btn btn-primary" style="cursor:pointer;">Send Email ▸</button>
+          <span class="contact-note">Sends to thiruselvan2506@gmail.com</span>
+        </div>
+        <div id="contact-status" class="contact-status" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+</div><!-- /scroll-container -->
+
+<footer>
+  <div style="margin-bottom:.6rem;font-size:.7rem;color:var(--steel);letter-spacing:.4em">THIRUSELVAN L // MECHANICAL ENGINEER // 2026</div>
+  3D GALLERY BUILT WITH THREE.JS · GSAP · HOWLER.JS
+</footer>
+
+</div><!-- /overlay -->
+
+<!-- SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   THIRUSELVAN PORTFOLIO — 3D GALLERY ENGINE
+   6 alcoves, each with unique WebGL lighting & atmosphere
+   Camera driven by GSAP ScrollTrigger on a cubic bezier path
+   Soundscape managed by Howler.js per room
+══════════════════════════════════════════════════════════ */
+
+gsap.registerPlugin(ScrollTrigger);
+
+/* ── LOADING ── */
+const lbar = document.getElementById('lbar');
+const llabel = document.getElementById('llabel');
+const loadingEl = document.getElementById('loading');
+const loadSteps = [
+  'INITIALISING THREE.JS ENGINE',
+  'BUILDING ALCOVE GEOMETRIES',
+  'LOADING LIGHTING RIGS',
+  'COMPILING SHADERS',
+  'ATTACHING SCROLL PATH',
+  'GALLERY READY'
+];
+let loadProgress = 0;
+function advanceLoad(pct, step){
+  loadProgress = pct;
+  lbar.style.width = pct + '%';
+  if(step !== undefined) llabel.textContent = loadSteps[step];
+}
+
+/* ══════════════════════════════════════════
+   1. THREE.JS SETUP
+══════════════════════════════════════════ */
+advanceLoad(10, 0);
+
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x020408, 1);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x020408, 0.025);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 300);
+camera.position.set(0, 0, 30);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ══════════════════════════════════════════
+   2. ROOM DEFINITIONS
+   Each room = { position, lightColor, lightIntensity, accent }
+══════════════════════════════════════════ */
+const ROOMS = [
+  { id: 'hero',    pos: [0,   0,  0],  color: 0xFF5500, accent: 0xFF9A3C, atmo: 0x220800, label:'ENTRANCE' },
+  { id: 'about',   pos: [0,   0, -40], color: 0x00CFFF, accent: 0x0088CC, atmo: 0x001520, label:'ABOUT' },
+  { id: 'exp',     pos: [0,   0, -80], color: 0xFF5500, accent: 0xFF2200, atmo: 0x180500, label:'EXPERIENCE' },
+  { id: 'proj',    pos: [0,   0,-120], color: 0x7B61FF, accent: 0x4433FF, atmo: 0x080518, label:'PROJECTS' },
+  { id: 'skills',  pos: [0,   0,-160], color: 0x00FF88, accent: 0x00CC66, atmo: 0x001508, label:'SKILLS' },
+  { id: 'contact', pos: [0,   0,-200], color: 0xFF5500, accent: 0xFF9A3C, atmo: 0x200800, label:'CONTACT' },
+];
+const TOTAL_ROOMS = ROOMS.length;
+const ROOM_DEPTH = 40; // z units between rooms
+
+/* ══════════════════════════════════════════
+   3. BACKGROUND PLANES (per alcove)
+══════════════════════════════════════════ */
+advanceLoad(25, 1);
+
+function makeAlcoveWalls(room, i){
+  const group = new THREE.Group();
+  const z = room.pos[2];
+
+  // Floor
+  const floorGeo = new THREE.PlaneGeometry(60, ROOM_DEPTH, 8, 8);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x050810,
+    metalness:0.6, roughness:0.8,
+    envMapIntensity:0.3
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.set(0, -12, z - ROOM_DEPTH/2);
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  // Back wall
+  const backGeo = new THREE.PlaneGeometry(60, 30);
+  const backMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(room.atmo),
+    metalness:0.3, roughness:0.9,
+  });
+  const back = new THREE.Mesh(backGeo, backMat);
+  back.position.set(0, 3, z - ROOM_DEPTH/2 - 0.1);
+  group.add(back);
+
+  // Left wall
+  const lw = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, 30), backMat.clone());
+  lw.rotation.y = Math.PI/2;
+  lw.position.set(-30, 3, z - ROOM_DEPTH/2);
+  group.add(lw);
+
+  // Right wall
+  const rw = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, 30), backMat.clone());
+  rw.rotation.y = -Math.PI/2;
+  rw.position.set(30, 3, z - ROOM_DEPTH/2);
+  group.add(rw);
+
+  // Ceiling
+  const ceilGeo = new THREE.PlaneGeometry(60, ROOM_DEPTH, 4, 4);
+  const ceilMat = new THREE.MeshStandardMaterial({color:0x030508, metalness:0.1, roughness:1});
+  const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+  ceil.rotation.x = Math.PI/2;
+  ceil.position.set(0, 18, z - ROOM_DEPTH/2);
+  group.add(ceil);
+
+  // Grid lines on floor
+  const gridMat = new THREE.LineBasicMaterial({
+    color: room.color, transparent:true, opacity:0.06,
+    blending: THREE.AdditiveBlending
+  });
+  for(let g=-5;g<=5;g++){
+    const h = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-30,-11.9,z-ROOM_DEPTH+g*4),
+      new THREE.Vector3(30,-11.9,z-ROOM_DEPTH+g*4)
+    ]);
+    const v = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(g*5,-11.9,z),
+      new THREE.Vector3(g*5,-11.9,z-ROOM_DEPTH)
+    ]);
+    group.add(new THREE.Line(h,gridMat));
+    group.add(new THREE.Line(v,gridMat));
+  }
+
+  return group;
+}
+
+const alcoveGroups = [];
+ROOMS.forEach((room, i) => {
+  const g = makeAlcoveWalls(room, i);
+  scene.add(g);
+  alcoveGroups.push(g);
+});
+
+/* ══════════════════════════════════════════
+   4. ALCOVE LIGHTS (unique per room)
+══════════════════════════════════════════ */
+advanceLoad(40, 2);
+
+const roomLights = [];
+const ambientLight = new THREE.AmbientLight(0x020408, 1.5);
+scene.add(ambientLight);
+
+function makeRoomLights(room, i){
+  const z = room.pos[2];
+
+  // Key light (ceiling spotlight)
+  const spot = new THREE.SpotLight(room.color, 0, 40, Math.PI/5, 0.4, 1.5);
+  spot.position.set(0, 15, z - ROOM_DEPTH/2);
+  spot.target.position.set(0, 0, z - ROOM_DEPTH/2);
+  spot.castShadow = true;
+  scene.add(spot);
+  scene.add(spot.target);
+
+  // Fill light
+  const fill = new THREE.PointLight(room.accent, 0, 35);
+  fill.position.set(-10, 5, z - ROOM_DEPTH/2 + 5);
+  scene.add(fill);
+
+  // Rim light
+  const rim = new THREE.PointLight(room.color, 0, 20);
+  rim.position.set(12, -5, z - ROOM_DEPTH/2 - 8);
+  scene.add(rim);
+
+  // Ground bounce (subtle)
+  const bounce = new THREE.PointLight(new THREE.Color(room.atmo).multiplyScalar(3), 0, 15);
+  bounce.position.set(0, -10, z - ROOM_DEPTH/2);
+  scene.add(bounce);
+
+  return { spot, fill, rim, bounce };
+}
+
+ROOMS.forEach((room, i) => {
+  roomLights.push(makeRoomLights(room, i));
+});
+
+// Activate first room lights
+roomLights[0].spot.intensity = 6;
+roomLights[0].fill.intensity = 3;
+roomLights[0].rim.intensity = 2;
+roomLights[0].bounce.intensity = 1;
+
+/* ══════════════════════════════════════════
+   5. ALCOVE 3D OBJECTS (unique per room)
+══════════════════════════════════════════ */
+advanceLoad(55, 1);
+
+/* Helper: gear shape */
+function makeGearShape(teeth, innerR, outerR){
+  const shape = new THREE.Shape();
+  const total = teeth * 2;
+  const step = (Math.PI*2)/total;
+  for(let i=0;i<total;i++){
+    const a = i*step;
+    const r = i%2===0 ? outerR : outerR*0.82;
+    i===0?shape.moveTo(Math.cos(a)*r,Math.sin(a)*r):shape.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+  }
+  shape.closePath();
+  const hole = new THREE.Path();
+  for(let i=0;i<=48;i++){const a=i/48*Math.PI*2;i===0?hole.moveTo(Math.cos(a)*innerR,Math.sin(a)*innerR):hole.lineTo(Math.cos(a)*innerR,Math.sin(a)*innerR);}
+  shape.holes.push(hole);
+  return shape;
+}
+
+const alcoveObjects = [];
+
+// Room 0 — Hero: Forge sphere + rotating rings
+(function(){
+  const z = ROOMS[0].pos[2];
+  const g = new THREE.Group();
+
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(3, 48, 48),
+    new THREE.MeshStandardMaterial({color:0xFF3300,emissive:0xFF2200,emissiveIntensity:2.5,metalness:0.2,roughness:0.5})
+  );
+  sphere.position.set(14, 2, z - 20);
+  g.add(sphere);
+
+  // Glow shell
+  const glowMat = new THREE.ShaderMaterial({
+    uniforms:{uTime:{value:0}},
+    vertexShader:`varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`varying vec3 vN;uniform float uTime;void main(){float rim=1.-dot(vN,vec3(0,0,1));float p=.8+.2*sin(uTime*3.);gl_FragColor=vec4(vec3(1.,.3,0.)*rim*rim*p,rim*rim*.5*p);}`,
+    transparent:true,side:THREE.BackSide,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(3.5,32,32), glowMat);
+  glow.position.copy(sphere.position);
+  g.add(glow);
+
+  [6,4.5,3].forEach((r,i)=>{
+    const t = new THREE.Mesh(
+      new THREE.TorusGeometry(r,.05,8,60),
+      new THREE.MeshStandardMaterial({color:0xFF5500,emissive:0xFF3300,emissiveIntensity:1.5,metalness:.9,roughness:.2,transparent:true,opacity:.8})
+    );
+    t.position.copy(sphere.position);
+    t.rotation.set(i*Math.PI*.3, i*Math.PI*.2, 0);
+    g.add(t);
+  });
+
+  scene.add(g);
+  alcoveObjects.push({group:g, sphere, glowMat, type:'hero'});
+})();
+
+// Room 1 — About: Blueprint wireframe box + floating chips
+(function(){
+  const z = ROOMS[1].pos[2];
+  const g = new THREE.Group();
+  const geo = new THREE.BoxGeometry(8,8,8);
+  const edges = new THREE.EdgesGeometry(geo);
+  const wf = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color:0x00CFFF,transparent:true,opacity:.5,blending:THREE.AdditiveBlending}));
+  wf.position.set(-14, 2, z - 20);
+  wf.rotation.set(.3,.5,.1);
+  g.add(wf);
+
+  // Floating torus blueprint
+  const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(5, .08, 8, 80),
+    new THREE.MeshStandardMaterial({color:0x00CFFF,emissive:0x0088CC,emissiveIntensity:1.5,metalness:.9,roughness:.1,transparent:true,opacity:.7})
+  );
+  torus.position.set(-14, 2, z - 20);
+  g.add(torus);
+
+  scene.add(g);
+  alcoveObjects.push({group:g, box:wf, torus, type:'about'});
+})();
+
+// Room 2 — Experience: Industrial gears
+(function(){
+  const z = ROOMS[2].pos[2];
+  const g = new THREE.Group();
+
+  const extSettings = {depth:.5,bevelEnabled:true,bevelThickness:.04,bevelSize:.03,bevelSegments:2};
+  const gMat = new THREE.MeshStandardMaterial({color:0x2A1A0A,emissive:0xFF3300,emissiveIntensity:.5,metalness:.95,roughness:.15});
+
+  const gear1 = new THREE.Mesh(new THREE.ExtrudeGeometry(makeGearShape(18,2.5,6),extSettings), gMat);
+  gear1.position.set(12, 2, z - 20);
+  g.add(gear1);
+
+  const gear2 = new THREE.Mesh(new THREE.ExtrudeGeometry(makeGearShape(10,1.5,3.5),extSettings), gMat.clone());
+  gear2.material.emissive = new THREE.Color(0xFF5500);
+  gear2.position.set(18.5, 2, z - 20);
+  g.add(gear2);
+
+  const gear3 = new THREE.Mesh(new THREE.ExtrudeGeometry(makeGearShape(12,1,4),extSettings), gMat.clone());
+  gear3.position.set(12, 8, z - 20);
+  g.add(gear3);
+
+  scene.add(g);
+  alcoveObjects.push({group:g, gear1, gear2, gear3, type:'exp'});
+})();
+
+// Room 3 — Projects: Crystal/diamond polyhedra
+(function(){
+  const z = ROOMS[3].pos[2];
+  const g = new THREE.Group();
+
+  const crystalMat = new THREE.MeshStandardMaterial({
+    color:0x7B61FF,emissive:0x4433FF,emissiveIntensity:1.2,
+    metalness:.1,roughness:.05,transparent:true,opacity:.85,
+    wireframe:false
+  });
+
+  const oct = new THREE.Mesh(new THREE.OctahedronGeometry(4), crystalMat);
+  oct.position.set(0, 2, z - 22);
+  g.add(oct);
+
+  const ico = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5), new THREE.MeshStandardMaterial({
+    color:0xAA99FF,emissive:0x7B61FF,emissiveIntensity:1.5,metalness:.2,roughness:.1,transparent:true,opacity:.7
+  }));
+  ico.position.set(-7, 0, z - 25);
+  g.add(ico);
+
+  const tet = new THREE.Mesh(new THREE.TetrahedronGeometry(2), new THREE.MeshStandardMaterial({
+    color:0xCC88FF,emissive:0x9966FF,emissiveIntensity:1.3,metalness:.15,roughness:.08,transparent:true,opacity:.75
+  }));
+  tet.position.set(7, 3, z - 18);
+  g.add(tet);
+
+  // Wire overlay
+  const wireOct = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.OctahedronGeometry(4.05)),
+    new THREE.LineBasicMaterial({color:0x00CFFF,transparent:true,opacity:.3,blending:THREE.AdditiveBlending})
+  );
+  wireOct.position.copy(oct.position);
+  g.add(wireOct);
+
+  scene.add(g);
+  alcoveObjects.push({group:g, oct, ico, tet, wireOct, type:'proj'});
+})();
+
+// Room 4 — Skills: Helix / DNA strand
+(function(){
+  const z = ROOMS[4].pos[2];
+  const g = new THREE.Group();
+
+  const nMat = new THREE.MeshStandardMaterial({color:0x00FF88,emissive:0x00CC66,emissiveIntensity:2,metalness:.2,roughness:.4});
+  const nMat2 = new THREE.MeshStandardMaterial({color:0x00CFFF,emissive:0x0088CC,emissiveIntensity:2,metalness:.2,roughness:.4});
+  const rodMat = new THREE.MeshStandardMaterial({color:0x004422,emissive:0x002211,emissiveIntensity:.5,metalness:.8,roughness:.3,transparent:true,opacity:.6});
+
+  for(let i=0;i<20;i++){
+    const t = i/20 * Math.PI * 4;
+    const y = i * 0.9 - 9;
+    const x1 = Math.cos(t)*3.5, z1 = Math.sin(t)*2;
+    const x2 = Math.cos(t+Math.PI)*3.5, z2 = Math.sin(t+Math.PI)*2;
+
+    const s1 = new THREE.Mesh(new THREE.SphereGeometry(.4,12,12), nMat);
+    s1.position.set(x1+12, y, z-20+z1);
+    g.add(s1);
+    const s2 = new THREE.Mesh(new THREE.SphereGeometry(.4,12,12), nMat2);
+    s2.position.set(x2+12, y, z-20+z2);
+    g.add(s2);
+
+    if(i%2===0){
+      const mid = new THREE.Vector3((x1+x2)/2+12, y, z-20+(z1+z2)/2);
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,7.2,8), rodMat);
+      rod.position.copy(mid);
+      rod.rotation.z = Math.atan2(y-y, x1-x2) + Math.PI/2;
+      rod.rotation.y = Math.atan2(z1-z2, x1-x2);
+      g.add(rod);
+    }
+  }
+
+  scene.add(g);
+  alcoveObjects.push({group:g, type:'skills'});
+})();
+
+// Room 5 — Contact: Portal ring
+(function(){
+  const z = ROOMS[5].pos[2];
+  const g = new THREE.Group();
+
+  const ringMat = new THREE.MeshStandardMaterial({color:0xFF5500,emissive:0xFF3300,emissiveIntensity:2,metalness:.9,roughness:.1});
+  const outerRing = new THREE.Mesh(new THREE.TorusGeometry(6,.2,16,100), ringMat);
+  outerRing.position.set(13, 2, z - 20);
+  g.add(outerRing);
+
+  const midRing = new THREE.Mesh(new THREE.TorusGeometry(4.5,.12,12,80), new THREE.MeshStandardMaterial({color:0xFF9A3C,emissive:0xFF5500,emissiveIntensity:1.5,metalness:.9,roughness:.1,transparent:true,opacity:.7}));
+  midRing.position.copy(outerRing.position);
+  midRing.rotation.y = Math.PI/4;
+  g.add(midRing);
+
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(3,.08,8,60), new THREE.MeshStandardMaterial({color:0xFFCC44,emissive:0xFF9900,emissiveIntensity:2,metalness:.9,roughness:.1,transparent:true,opacity:.5}));
+  innerRing.position.copy(outerRing.position);
+  innerRing.rotation.x = Math.PI/3;
+  g.add(innerRing);
+
+  // Portal plane
+  const portalShader = new THREE.ShaderMaterial({
+    uniforms:{uTime:{value:0}},
+    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`varying vec2 vUv;uniform float uTime;void main(){vec2 uv=vUv-.5;float d=length(uv);float ring=smoothstep(.48,.5,d)*smoothstep(.5,.45,d);float pulse=.5+.5*sin(uTime*2.+d*12.);vec3 col=mix(vec3(1.,.3,0.),vec3(1.,.6,.1),pulse);gl_FragColor=vec4(col*ring*2.5,ring*.8);}`,
+    transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+  });
+  const portal = new THREE.Mesh(new THREE.CircleGeometry(5.8,64), portalShader);
+  portal.position.copy(outerRing.position);
+  g.add(portal);
+
+  scene.add(g);
+  alcoveObjects.push({group:g, outerRing, midRing, innerRing, portalShader, type:'contact'});
+})();
+
+/* ══════════════════════════════════════════
+   6. PARTICLES (global nebula)
+══════════════════════════════════════════ */
+advanceLoad(65, 2);
+
+const PCOUNT = 5000;
+const pp = new Float32Array(PCOUNT*3);
+const pc = new Float32Array(PCOUNT*3);
+const ps = new Float32Array(PCOUNT);
+const roomColors = ROOMS.map(r => new THREE.Color(r.color));
+
+for(let i=0;i<PCOUNT;i++){
+  pp[i*3]   = (Math.random()-.5)*120;
+  pp[i*3+1] = (Math.random()-.5)*60;
+  pp[i*3+2] = Math.random()*-220;
+  const rc = roomColors[Math.floor(Math.random()*roomColors.length)];
+  pc[i*3]=rc.r; pc[i*3+1]=rc.g; pc[i*3+2]=rc.b;
+  ps[i] = Math.random()*2+.3;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pp,3));
+pGeo.setAttribute('color',    new THREE.BufferAttribute(pc,3));
+pGeo.setAttribute('size',     new THREE.BufferAttribute(ps,1));
+const pMat = new THREE.ShaderMaterial({
+  uniforms:{uTime:{value:0}},
+  vertexShader:`attribute float size;attribute vec3 color;varying vec3 vC;varying float vA;uniform float uTime;
+    void main(){vC=color;vec3 p=position;p.x+=sin(uTime*.08+p.y*.3)*.4;p.y+=cos(uTime*.06+p.x*.2)*.3;
+    vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=size*(320./-mv.z);vA=clamp(.7-abs(p.z)*.004,0.1,.9);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying vec3 vC;varying float vA;
+    void main(){float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;float a=(1.-d)*vA;float gw=exp(-d*4.)*.5;gl_FragColor=vec4(vC+gw,a+gw*.4);}`,
+  transparent:true,depthWrite:false,vertexColors:true,blending:THREE.AdditiveBlending
+});
+scene.add(new THREE.Points(pGeo, pMat));
+
+/* ══════════════════════════════════════════
+   7. CAMERA PATH (CubicBezier via GSAP)
+══════════════════════════════════════════ */
+advanceLoad(75, 3);
+
+// Camera waypoints — one per room (z only, centered in alcove)
+const camWaypoints = ROOMS.map((r,i) => ({
+  x: 0, y: 0, z: r.pos[2] - ROOM_DEPTH/2 + 15
+}));
+camWaypoints[0].z = 15; // hero starts in front
+
+let currentRoom = 0;
+let mouseX = 0, mouseY = 0;
+let camTargetX = 0, camTargetY = 0;
+
+// GSAP proxy object for tweening
+const camProxy = { z: camWaypoints[0].z };
+
+/* ══════════════════════════════════════════
+   8. SCROLL SYSTEM
+══════════════════════════════════════════ */
+// We drive everything via scroll position
+// Each room = 100vh of scroll
+const totalScrollHeight = TOTAL_ROOMS * window.innerHeight;
+let isScrolling = false;
+let scrollTimeout;
+
+function scrollToRoom(index){
+  const target = index * window.innerHeight;
+  window.scrollTo({top: target, behavior: 'smooth'});
+}
+window.scrollToRoom = scrollToRoom;
+
+// Map scroll to room index
+function getScrollRoom(){
+  const scroll = window.scrollY;
+  const rawRoom = scroll / window.innerHeight;
+  return { index: Math.round(rawRoom), frac: rawRoom };
+}
+
+// Animate camera along path using GSAP
+function tweenCameraToRoom(roomIdx){
+  const wp = camWaypoints[Math.min(roomIdx, camWaypoints.length-1)];
+  gsap.to(camProxy, {
+    z: wp.z,
+    duration: 1.2,
+    ease: 'power3.inOut',
+    onUpdate: () => { /* camera.position.z updated in render loop */ }
+  });
+}
+
+// Handle scroll
+let lastRoom = 0;
+window.addEventListener('scroll', () => {
+  const {index, frac} = getScrollRoom();
+  const clampedIdx = Math.max(0, Math.min(TOTAL_ROOMS-1, index));
+
+  // GSAP tween camera smoothly
+  if(clampedIdx !== lastRoom){
+    tweenCameraToRoom(clampedIdx);
+    lastRoom = clampedIdx;
+    onRoomChange(clampedIdx);
+  }
+
+  // Fractional camera interpolation between waypoints
+  const fracIdx = Math.min(frac, TOTAL_ROOMS-1);
+  const lo = Math.floor(fracIdx);
+  const hi = Math.min(lo+1, TOTAL_ROOMS-1);
+  const t = fracIdx - lo;
+  const ease = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+  camProxy.z = camWaypoints[lo].z + (camWaypoints[hi].z - camWaypoints[lo].z) * ease;
+});
+
+/* ══════════════════════════════════════════
+   9. ROOM CHANGE EVENTS
+══════════════════════════════════════════ */
+function onRoomChange(idx){
+  // Update nav dots
+  document.querySelectorAll('.room-dot').forEach((d,i)=>{
+    d.classList.toggle('active', i===idx);
+  });
+
+  // Reveal/hide HUD panels
+  document.querySelectorAll('.room-panel').forEach((p, i) => {
+    const on = Math.abs(i - idx) <= 0;
+    p.classList.toggle('visible', on);
+  });
+
+  // Animate lights
+  ROOMS.forEach((room, i) => {
+    const lights = roomLights[i];
+    const active = i === idx;
+    gsap.to(lights.spot, {intensity: active ? 7 : 0, duration:.8, ease:'power2.inOut'});
+    gsap.to(lights.fill, {intensity: active ? 3.5 : 0, duration:.8, ease:'power2.inOut'});
+    gsap.to(lights.rim,  {intensity: active ? 2 : 0,   duration:.8, ease:'power2.inOut'});
+    gsap.to(lights.bounce, {intensity: active ? 1.5 : 0, duration:.8});
+  });
+
+  // Fog color tween
+  const targetAtmo = new THREE.Color(ROOMS[idx].atmo);
+  gsap.to(scene.fog.color, {r:targetAtmo.r, g:targetAtmo.g, b:targetAtmo.b, duration:1.2});
+
+  // Skill bars on room 4
+  if(idx === 4){
+    setTimeout(()=>{
+      document.querySelectorAll('.sk-fill').forEach(b=>{
+        b.style.width = b.getAttribute('data-w') + '%';
+      });
+    }, 400);
+  }
+
+  // Soundscape
+  playRoomSound(idx);
+}
+
+/* ══════════════════════════════════════════
+   10. HOWLER.JS SOUNDSCAPE
+══════════════════════════════════════════ */
+advanceLoad(85, 4);
+
+let soundEnabled = true;
+let currentSound = null;
+let audioCtx = null;
+
+// We generate procedural audio tones using Web Audio API
+// (Howler used as manager for volume/fade)
+function createTone(freq, type='sine', vol=0.04){
+  if(!audioCtx) return null;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.value = 0;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 1.2);
+  return {osc, gain};
+}
+
+const roomTones = [
+  {freq:55,  type:'sine',     vol:.035}, // Hero: deep bass
+  {freq:220, type:'sine',     vol:.025}, // About: clean mid
+  {freq:110, type:'sawtooth', vol:.015}, // Exp: industrial
+  {freq:440, type:'triangle', vol:.02},  // Projects: bright
+  {freq:330, type:'sine',     vol:.025}, // Skills: smooth
+  {freq:82,  type:'sine',     vol:.03},  // Contact: resonant
+];
+
+let activeTone = null;
+
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playRoomSound(idx){
+  if(!soundEnabled || !audioCtx) return;
+  if(activeTone){
+    const g = activeTone.gain;
+    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime+.8);
+    const osc = activeTone.osc;
+    setTimeout(()=>{ try{osc.stop();}catch(e){} }, 900);
+    activeTone = null;
+  }
+  const t = roomTones[idx];
+  activeTone = createTone(t.freq, t.type, t.vol);
+}
+
+function toggleSound(){
+  soundEnabled = !soundEnabled;
+  document.getElementById('sound-on').style.display = soundEnabled ? 'block' : 'none';
+  document.getElementById('sound-off').style.display = soundEnabled ? 'none' : 'block';
+  if(!soundEnabled && activeTone){
+    activeTone.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime+.5);
+  } else if(soundEnabled){
+    initAudio();
+    playRoomSound(currentRoom);
+  }
+}
+window.toggleSound = toggleSound;
+
+const contactForm = document.getElementById('contact-form');
+const contactStatus = document.getElementById('contact-status');
+const contactEmail = 'thiruselvan2506@gmail.com';
+if(contactForm){
+  contactForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(contactForm);
+    const name = String(formData.get('name') || '').trim();
+    const email = String(formData.get('email') || '').trim();
+    const message = String(formData.get('message') || '').trim();
+    const subject = encodeURIComponent(`Portfolio message from ${name || 'Visitor'}`);
+    const body = encodeURIComponent(`Name: ${name || 'N/A'}\nEmail: ${email || 'N/A'}\n\n${message}`);
+    const mailtoLink = `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+    if(contactStatus) contactStatus.textContent = 'Opening your mail app so you can send the message to the portfolio email.';
+    const tempLink = document.createElement('a');
+    tempLink.href = mailtoLink;
+    tempLink.target = '_self';
+    tempLink.rel = 'noopener noreferrer';
+    document.body.appendChild(tempLink);
+    tempLink.click();
+    tempLink.remove();
+  });
+}
+
+// Init audio on first interaction
+document.addEventListener('click', ()=>{ initAudio(); }, {once:true});
+document.addEventListener('scroll', ()=>{ initAudio(); }, {once:true});
+
+/* ══════════════════════════════════════════
+   11. MOUSE PARALLAX
+══════════════════════════════════════════ */
+document.addEventListener('mousemove', e => {
+  mouseX = (e.clientX/window.innerWidth - .5)*2;
+  mouseY = -(e.clientY/window.innerHeight - .5)*2;
+});
+
+/* ══════════════════════════════════════════
+   12. ANIMATION LOOP
+══════════════════════════════════════════ */
+const clock = new THREE.Clock();
+let frameCount = 0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  frameCount++;
+
+  pMat.uniforms.uTime.value = t;
+
+  // Smooth camera parallax
+  camTargetX += (mouseX * 1.5 - camTargetX) * 0.04;
+  camTargetY += (mouseY * 1.0 - camTargetY) * 0.04;
+  camera.position.x = camTargetX;
+  camera.position.y = camTargetY;
+  camera.position.z = camProxy.z;
+  camera.lookAt(camTargetX*.3, camTargetY*.3, camProxy.z - 20);
+
+  // Per-object animations
+  alcoveObjects.forEach((obj, i) => {
+    if(!obj) return;
+    switch(obj.type){
+      case 'hero':
+        obj.glowMat.uniforms.uTime.value = t;
+        obj.sphere.scale.setScalar(1 + Math.sin(t*2.5)*.05);
+        obj.group.children.forEach((c,ci)=>{
+          if(ci>1) c.rotation.z = t*(ci*.15+.1);
+        });
+        break;
+      case 'about':
+        obj.box.rotation.y = t*.3;
+        obj.box.rotation.x = t*.2;
+        obj.torus.rotation.z = t*.5;
+        obj.torus.rotation.y = Math.sin(t*.4)*.3;
+        break;
+      case 'exp':
+        obj.gear1.rotation.z = t*.5;
+        obj.gear2.rotation.z = -t*.85;
+        obj.gear3.rotation.z = t*.6;
+        break;
+      case 'proj':
+        obj.oct.rotation.y = t*.4;
+        obj.oct.rotation.x = t*.2;
+        obj.ico.rotation.y = -t*.6;
+        obj.ico.position.y = 2 + Math.sin(t*.7)*.8;
+        obj.tet.rotation.z = t*.8;
+        obj.tet.position.y = 3 + Math.cos(t*.5)*.6;
+        obj.wireOct.rotation.copy(obj.oct.rotation);
+        break;
+      case 'skills':
+        obj.group.rotation.y = Math.sin(t*.2)*.15;
+        break;
+      case 'contact':
+        obj.outerRing.rotation.z = t*.3;
+        obj.midRing.rotation.z = -t*.5;
+        obj.innerRing.rotation.x = t*.4;
+        obj.portalShader.uniforms.uTime.value = t;
+        break;
+    }
+  });
+
+  renderer.render(scene, camera);
+}
+
+/* ══════════════════════════════════════════
+   13. CURSOR ENGINE
+══════════════════════════════════════════ */
+const cur = document.getElementById('cur');
+const curR = document.getElementById('cur-r');
+let cx=0,cy=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{
+  cx=e.clientX;cy=e.clientY;
+  cur.style.left=cx+'px';cur.style.top=cy+'px';
+});
+(function animCursor(){
+  requestAnimationFrame(animCursor);
+  rx+=(cx-rx)*.11; ry+=(cy-ry)*.11;
+  curR.style.left=rx+'px'; curR.style.top=ry+'px';
+})();
+document.querySelectorAll('a,button,.btn,.exp-c,.proj-c,.cert-c,.c-link-c,.room-dot').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    cur.style.transform='translate(-50%,-50%) scale(2.5)';
+    cur.style.background='#00CFFF';
+    curR.style.width='55px';curR.style.height='55px';
+    curR.style.borderColor='#FF5500';
+  });
+  el.addEventListener('mouseleave',()=>{
+    cur.style.transform='translate(-50%,-50%) scale(1)';
+    cur.style.background='#FF5500';
+    curR.style.width='36px';curR.style.height='36px';
+    curR.style.borderColor='#00CFFF';
+  });
+});
+
+/* ══════════════════════════════════════════
+   14. FINISH LOADING
+══════════════════════════════════════════ */
+advanceLoad(100, 5);
+
+// Make scroll container the right height
+document.getElementById('scroll-container').style.minHeight = `calc(${TOTAL_ROOMS * 100}vh + 14rem)`;
+
+// Show first room
+document.querySelector('#room-hero').classList.add('visible');
+
+setTimeout(()=>{
+  loadingEl.classList.add('gone');
+  animate();
+  // Start render
+}, 800);
+
+/* ══════════════════════════════════════════
+   15. SCROLL TRIGGER (GSAP) — camera path
+══════════════════════════════════════════ */
+// GSAP ScrollTrigger: drive camProxy.z along the full page scroll
+ScrollTrigger.create({
+  trigger: '#scroll-container',
+  start: 'top top',
+  end: 'bottom bottom',
+  scrub: 1.5,
+  onUpdate: (self) => {
+    const progress = self.progress; // 0 to 1
+    const totalFrac = progress * (TOTAL_ROOMS - 1);
+    const lo = Math.floor(totalFrac);
+    const hi = Math.min(lo+1, TOTAL_ROOMS-1);
+    const t = totalFrac - lo;
+    // Smooth ease
+    const e = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+    camProxy.z = camWaypoints[lo].z + (camWaypoints[hi].z - camWaypoints[lo].z) * e;
+
+    const roomIdx = Math.round(totalFrac);
+    if(roomIdx !== currentRoom){
+      currentRoom = roomIdx;
+      onRoomChange(roomIdx);
+    }
+  }
+});
+
+// Kick off with room 0
+onRoomChange(0);
+
+</script>
+</body>
+</html>
