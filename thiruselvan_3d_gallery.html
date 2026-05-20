@@ -403,6 +403,12 @@ footer{
 @media (max-width: 900px) {
   #webgl { display: none !important; visibility: hidden; height: 0 !important; }
 }
+
+/* Disable CSS animations/transitions on mobile to avoid motion issues */
+@media (max-width: 900px) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .sk-fill { transition: none !important; }
+}
 </style>
 </head>
 <body>
@@ -1160,12 +1166,16 @@ function getScrollRoom(){
 // Animate camera along path using GSAP
 function tweenCameraToRoom(roomIdx){
   const wp = camWaypoints[Math.min(roomIdx, camWaypoints.length-1)];
-  gsap.to(camProxy, {
-    z: wp.z,
-    duration: 1.2,
-    ease: 'power3.inOut',
-    onUpdate: () => { /* camera.position.z updated in render loop */ }
-  });
+  if(animationsEnabled){
+    gsap.to(camProxy, {
+      z: wp.z,
+      duration: 1.2,
+      ease: 'power3.inOut',
+      onUpdate: () => { /* camera.position.z updated in render loop */ }
+    });
+  }else{
+    camProxy.z = wp.z;
+  }
 }
 
 // Handle scroll
@@ -1209,23 +1219,42 @@ function onRoomChange(idx){
   ROOMS.forEach((room, i) => {
     const lights = roomLights[i];
     const active = i === idx;
-    gsap.to(lights.spot, {intensity: active ? 7 : 0, duration:.8, ease:'power2.inOut'});
-    gsap.to(lights.fill, {intensity: active ? 3.5 : 0, duration:.8, ease:'power2.inOut'});
-    gsap.to(lights.rim,  {intensity: active ? 2 : 0,   duration:.8, ease:'power2.inOut'});
-    gsap.to(lights.bounce, {intensity: active ? 1.5 : 0, duration:.8});
+    if(animationsEnabled){
+      gsap.to(lights.spot, {intensity: active ? 7 : 0, duration:.8, ease:'power2.inOut'});
+      gsap.to(lights.fill, {intensity: active ? 3.5 : 0, duration:.8, ease:'power2.inOut'});
+      gsap.to(lights.rim,  {intensity: active ? 2 : 0,   duration:.8, ease:'power2.inOut'});
+      gsap.to(lights.bounce, {intensity: active ? 1.5 : 0, duration:.8});
+    }else{
+      // immediate state change for mobile
+      lights.spot.intensity = active ? 7 : 0;
+      lights.fill.intensity = active ? 3.5 : 0;
+      lights.rim.intensity = active ? 2 : 0;
+      lights.bounce.intensity = active ? 1.5 : 0;
+    }
   });
 
   // Fog color tween
   const targetAtmo = new THREE.Color(ROOMS[idx].atmo);
-  gsap.to(scene.fog.color, {r:targetAtmo.r, g:targetAtmo.g, b:targetAtmo.b, duration:1.2});
+  if(animationsEnabled){
+    gsap.to(scene.fog.color, {r:targetAtmo.r, g:targetAtmo.g, b:targetAtmo.b, duration:1.2});
+  }else{
+    scene.fog.color.set(targetAtmo);
+  }
 
   // Skill bars on room 4
   if(idx === 4){
-    setTimeout(()=>{
+    if(animationsEnabled){
+      setTimeout(()=>{
+        document.querySelectorAll('.sk-fill').forEach(b=>{
+          b.style.width = b.getAttribute('data-w') + '%';
+        });
+      }, 400);
+    } else {
+      // set widths immediately without animation on mobile
       document.querySelectorAll('.sk-fill').forEach(b=>{
         b.style.width = b.getAttribute('data-w') + '%';
       });
-    }, 400);
+    }
   }
 
   // Soundscape
@@ -1445,10 +1474,12 @@ document.getElementById('scroll-container').style.minHeight = `calc(${TOTAL_ROOM
 // Show first room
 document.querySelector('#room-hero').classList.add('visible');
 
-// Control whether we run the WebGL render loop on mobile
+// Control whether we run the WebGL render loop and animations on mobile
 let renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+let animationsEnabled = renderEnabled; // animations follow renderEnabled by default
 function updateRenderEnabled(){
   renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+  animationsEnabled = renderEnabled;
   const canvas = document.getElementById('webgl');
   if(canvas) canvas.style.display = renderEnabled ? 'block' : 'none';
   const fb = document.getElementById('mobile-fallback');
@@ -1471,28 +1502,32 @@ setTimeout(()=>{
    15. SCROLL TRIGGER (GSAP) — camera path
 ══════════════════════════════════════════ */
 // GSAP ScrollTrigger: drive camProxy.z along the full page scroll
-ScrollTrigger.create({
-  trigger: '#scroll-container',
-  start: 'top top',
-  end: 'bottom bottom',
-  scrub: 1.5,
-  onUpdate: (self) => {
-    const progress = self.progress; // 0 to 1
-    const totalFrac = progress * (TOTAL_ROOMS - 1);
-    const lo = Math.floor(totalFrac);
-    const hi = Math.min(lo+1, TOTAL_ROOMS-1);
-    const t = totalFrac - lo;
-    // Smooth ease
-    const e = t<.5 ? 2*t*t : -1+(4-2*t)*t;
-    camProxy.z = camWaypoints[lo].z + (camWaypoints[hi].z - camWaypoints[lo].z) * e;
+if(animationsEnabled){
+  ScrollTrigger.create({
+    trigger: '#scroll-container',
+    start: 'top top',
+    end: 'bottom bottom',
+    scrub: 1.5,
+    onUpdate: (self) => {
+      const progress = self.progress; // 0 to 1
+      const totalFrac = progress * (TOTAL_ROOMS - 1);
+      const lo = Math.floor(totalFrac);
+      const hi = Math.min(lo+1, TOTAL_ROOMS-1);
+      const t = totalFrac - lo;
+      // Smooth ease
+      const e = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+      camProxy.z = camWaypoints[lo].z + (camWaypoints[hi].z - camWaypoints[lo].z) * e;
 
-    const roomIdx = Math.round(totalFrac);
-    if(roomIdx !== currentRoom){
-      currentRoom = roomIdx;
-      onRoomChange(roomIdx);
+      const roomIdx = Math.round(totalFrac);
+      if(roomIdx !== currentRoom){
+        currentRoom = roomIdx;
+        onRoomChange(roomIdx);
+      }
     }
-  }
-});
+  });
+} else {
+  // On mobile/low-power we rely on the basic scroll handler above
+}
 
 // Kick off with room 0
 onRoomChange(0);
