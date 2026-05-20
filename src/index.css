@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Space+Mono:ital,wght@0,400;0,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-forge: #FF5500;
+  --color-molten: #FF9A3C;
+  --color-cold: #00CFFF;
+  --color-plasma: #7B61FF;
+  --color-emerald: #00FF88;
+  --color-crimson: #FF2255;
+  --color-steel: #B0C8E8;
+  --color-dark: #020408;
+  --color-text-main: #EEF4FF;
+  --color-muted: #4A6A8A;
+  
+  --font-orbitron: "Orbitron", monospace;
+  --font-rajdhani: "Rajdhani", sans-serif;
+  --font-space: "Space Mono", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-dark);
+    color: var(--color-text-main);
+    font-family: var(--font-rajdhani);
+    overflow-x: hidden;
+  }
+}
