@@ -418,6 +418,23 @@ footer{
 
 <canvas id="webgl"></canvas>
 
+  <!-- Lightweight mobile fallback (shown when WebGL disabled) -->
+  <div id="mobile-fallback" style="display:none;padding:2rem;z-index:20;">
+    <div style="max-width:720px;margin:0 auto;display:flex;gap:1rem;align-items:center;">
+      <img src="WhatsApp%20Image%202026-05-20%20at%202.30.42%20PM.jpeg" alt="portrait" style="width:92px;height:122px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.06);">
+      <div>
+        <div style="font-family:Orbitron,monospace;font-weight:900;color:var(--forge);letter-spacing:.35em;margin-bottom:.2rem;">TL // MECH</div>
+        <h2 style="margin:0;font-size:1.6rem;">THIRUSELVAN L</h2>
+        <p style="margin:.2rem 0 .6rem;color:var(--steel);">Mechanical Engineer — Design · Manufacturing · Automation</p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+          <a href="https://wa.me/917010051020?text=Hello%20THIRUSELVAN%20L%2C%20I%20visited%20your%203D%20gallery%20portfolio." class="btn btn-primary" style="text-decoration:none;padding:.6rem 1rem;">WhatsApp</a>
+          <a href="mailto:thiruselvan2506@gmail.com" class="btn btn-ghost" style="text-decoration:none;padding:.6rem 1rem;">Email</a>
+        </div>
+      </div>
+    </div>
+    <hr style="margin:1rem 0;border-color:rgba(255,255,255,.03)">
+  </div>
+
 <div id="overlay">
 
 <!-- NAV -->
@@ -1434,6 +1451,8 @@ function updateRenderEnabled(){
   renderEnabled = !window.matchMedia('(max-width:900px)').matches;
   const canvas = document.getElementById('webgl');
   if(canvas) canvas.style.display = renderEnabled ? 'block' : 'none';
+  const fb = document.getElementById('mobile-fallback');
+  if(fb) fb.style.display = renderEnabled ? 'none' : 'block';
   try{
     if(!renderEnabled && audioCtx) audioCtx.suspend();
     if(renderEnabled && audioCtx) audioCtx.resume();
