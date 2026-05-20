@@ -400,7 +400,7 @@ footer{
   footer { padding: 2rem; }
 }
 /* Mobile static mode: hide decorative/duplicated elements and show only fallback */
-@media (max-width:900px){
+@media (max-width:1024px){
   .hero-portrait{display:none !important}
   .scroll-hint, #room-indicator, .proj-n, .room-dot, .loading-logo { display:none !important; }
   #cur, #cur-r { display:none !important; }
@@ -409,17 +409,17 @@ footer{
 }
 
 /* Ensure the entire 3D scroll container is hidden on small screens so only the static fallback shows */
-@media (max-width:900px){
+@media (max-width:1024px){
   #scroll-container { display: none !important; }
   .hud, .hud-left, .hud-right, .hud-center { position: static !important; }
 }
 /* Hide heavy WebGL canvas on small screens (also controlled by JS) */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   #webgl { display: none !important; visibility: hidden; height: 0 !important; }
 }
 
 /* Disable CSS animations/transitions on mobile to avoid motion issues */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   .sk-fill { transition: none !important; }
 }
@@ -1489,10 +1489,10 @@ document.getElementById('scroll-container').style.minHeight = `calc(${TOTAL_ROOM
 document.querySelector('#room-hero').classList.add('visible');
 
 // Control whether we run the WebGL render loop and animations on mobile
-let renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+let renderEnabled = !window.matchMedia('(max-width:1024px)').matches;
 let animationsEnabled = renderEnabled; // animations follow renderEnabled by default
 function updateRenderEnabled(){
-  renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+  renderEnabled = !window.matchMedia('(max-width:1024px)').matches;
   animationsEnabled = renderEnabled;
   const canvas = document.getElementById('webgl');
   if(canvas) canvas.style.display = renderEnabled ? 'block' : 'none';
