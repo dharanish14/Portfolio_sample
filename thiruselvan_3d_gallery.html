@@ -352,16 +352,52 @@ footer{
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── RESPONSIVE ── */
-@media(max-width:900px){
-  nav{padding:1rem 1.5rem;}
-  .nav-ul{display:none;}
-  .hud-left,.hud-right,.hud-center{left:5%;right:5%;max-width:100%;transform:none;text-align:left;width:auto;}
-  .proj-cards,.sk-grid{grid-template-columns:1fr;}
-  .bp-grid{grid-template-columns:1fr 1fr;}
-  #room-indicator{display:none;}
-  .hero-portrait{position:relative;right:auto;top:auto;transform:none;width:min(320px,78vw);margin:1.5rem 0 0 auto;}
-  .hero-name{font-size:clamp(2.8rem,11vw,5.2rem);}
-  .contact-form{margin-bottom:5rem;}
+@media (max-width: 900px) {
+  nav { padding: 1rem 1.5rem; }
+  .nav-ul { display: none; }
+
+  /* Make HUD panels flow in document flow instead of absolute overlay */
+  .hud-left, .hud-right, .hud-center {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    transform: none;
+    max-width: 100%;
+    text-align: left;
+    width: auto;
+    padding: 0 1rem;
+  }
+
+  .proj-cards, .sk-grid { grid-template-columns: 1fr; }
+  .bp-grid { grid-template-columns: 1fr 1fr; }
+  #room-indicator { display: none; }
+
+  /* Portrait: show inline under hero text and scale up slightly for phones */
+  .hero-portrait {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    width: min(320px, 78vw);
+    margin: 1.5rem 0 0 0;
+    opacity: 1;
+    animation: none;
+  }
+
+  .hero-name { font-size: clamp(2.2rem, 10vw, 4.6rem); }
+
+  /* Buttons and hero actions stack vertically and become touch-friendly */
+  .hero-btns { flex-direction: column; align-items: flex-start; gap: .9rem; }
+  .btn { width: 100%; max-width: 320px; }
+
+  .contact-form { margin-bottom: 5rem; }
+  .contact-actions { display: flex; flex-direction: column; align-items: flex-start; gap: .8rem; flex-wrap: nowrap; }
+
+  /* Make interactive elements show pointer on mobile and reduce fixed overlays */
+  .btn { cursor: pointer; }
+  #sound-btn { right: 1.5rem; bottom: 1.5rem; }
+  footer { padding: 2rem; }
 }
 </style>
 </head>
