@@ -399,6 +399,10 @@ footer{
   #sound-btn { right: 1.5rem; bottom: 1.5rem; }
   footer { padding: 2rem; }
 }
+/* Hide heavy WebGL canvas on small screens (also controlled by JS) */
+@media (max-width: 900px) {
+  #webgl { display: none !important; visibility: hidden; height: 0 !important; }
+}
 </style>
 </head>
 <body>
@@ -1321,6 +1325,8 @@ const clock = new THREE.Clock();
 let frameCount = 0;
 
 function animate(){
+  // If rendering is disabled (mobile), skip animation loop
+  if(typeof renderEnabled !== 'undefined' && !renderEnabled) return;
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
   frameCount++;
@@ -1422,10 +1428,24 @@ document.getElementById('scroll-container').style.minHeight = `calc(${TOTAL_ROOM
 // Show first room
 document.querySelector('#room-hero').classList.add('visible');
 
+// Control whether we run the WebGL render loop on mobile
+let renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+function updateRenderEnabled(){
+  renderEnabled = !window.matchMedia('(max-width:900px)').matches;
+  const canvas = document.getElementById('webgl');
+  if(canvas) canvas.style.display = renderEnabled ? 'block' : 'none';
+  try{
+    if(!renderEnabled && audioCtx) audioCtx.suspend();
+    if(renderEnabled && audioCtx) audioCtx.resume();
+  }catch(e){}
+}
+window.addEventListener('resize', updateRenderEnabled);
+updateRenderEnabled();
+
 setTimeout(()=>{
   loadingEl.classList.add('gone');
-  animate();
-  // Start render
+  if(renderEnabled){ animate(); }
+  // Start render only on non-mobile devices
 }, 800);
 
 /* ══════════════════════════════════════════
