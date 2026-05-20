@@ -399,6 +399,14 @@ footer{
   #sound-btn { right: 1.5rem; bottom: 1.5rem; }
   footer { padding: 2rem; }
 }
+/* Mobile static mode: hide decorative/duplicated elements and show only fallback */
+@media (max-width:900px){
+  .hero-portrait{display:none !important}
+  .scroll-hint, #room-indicator, .proj-n, .room-dot, .loading-logo { display:none !important; }
+  #cur, #cur-r { display:none !important; }
+  .proj-c, .exp-c, .cert-c { cursor:auto; }
+  #mobile-fallback{display:block !important}
+}
 /* Hide heavy WebGL canvas on small screens (also controlled by JS) */
 @media (max-width: 900px) {
   #webgl { display: none !important; visibility: hidden; height: 0 !important; }
@@ -1484,6 +1492,8 @@ function updateRenderEnabled(){
   if(canvas) canvas.style.display = renderEnabled ? 'block' : 'none';
   const fb = document.getElementById('mobile-fallback');
   if(fb) fb.style.display = renderEnabled ? 'none' : 'block';
+  // add a global class for static mobile styling
+  try{ document.documentElement.classList.toggle('mobile-static', !renderEnabled); }catch(e){}
   try{
     if(!renderEnabled && audioCtx) audioCtx.suspend();
     if(renderEnabled && audioCtx) audioCtx.resume();
